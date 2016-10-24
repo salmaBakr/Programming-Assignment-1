@@ -1,4 +1,3 @@
-
 #include <iostream>
 #include <string.h>
 #include <sys/types.h>
@@ -14,7 +13,10 @@
 #include <string.h>
 #include <stdio.h>
 #include <vector>
- 
+#include <string.h>
+#include <stdio.h>
+#include <vector>
+#include <sstream> 
 using namespace std;
 
 int main(int argc, char *argv[])
@@ -67,7 +69,10 @@ int main(int argc, char *argv[])
     // Once it reaches here, the client can send a message first.
 
     do {
-        cin >> buffer;
+         bzero(buffer,bufsize);
+        cout << "Client: ";
+            printf("Please enter the message: ");
+        fgets(buffer,bufsize-1,stdin);
         vector<string> vec; 
           char * pch;
           pch = strtok (buffer," ");
@@ -76,34 +81,76 @@ int main(int argc, char *argv[])
             vec.push_back(pch);
             pch = strtok (NULL, " ");
           }
-          if(vec[0].compare("get"))
+          if(vec[0].compare("get")==0)
           {
-        cout << "Client: ";
-        printf("Please enter the message: ");
-    bzero(buffer,256);
-    fgets(buffer,255,stdin);
-   int n = write(client, buffer, strlen(buffer));
-    if (n < 0) 
-        printf("ERROR writing to socket");
-    bzero(buffer,256);
-    n = read(client, buffer, 255);
-    if (n < 0) 
-         printf("ERROR reading from socket");
-    printf("%s\n", buffer);}
-    else if(vec[0].compare("post"))
+            bzero(buffer,bufsize);
+            char str[256];
+            strcpy (str,"GET /");
+            strcat (str,vec[1].c_str());
+            strcat (str," HTTP/1.1\r\nHost: ");
+            strcat (str,vec[2].c_str());
+            cout<<str<<endl;
+           int n = write(client, str, strlen(str));
+            if (n < 0) 
+                printf("ERROR writing to socket");
+            n = read(client, buffer, bufsize-1);
+            if (n < 0) 
+                 printf("ERROR reading from socket");
+             else
+                printf("%s\n", buffer);
+           }
+    else if(vec[0].compare("post")==0)
           {
-        cout << "Client: ";
-        printf("Please enter the message: ");
-    bzero(buffer,256);
-    fgets(buffer,255,stdin);
-   int n = write(client, buffer, strlen(buffer));
-    if (n < 0) 
-        printf("ERROR writing to socket");
-    bzero(buffer,256);
-    n = read(client, buffer, 255);
-    if (n < 0) 
-         printf("ERROR reading from socket");
-    printf("%s\n", buffer);}
+            string text;
+            stringstream stream;
+            FILE *sendFile = fopen(vec[1].c_str(), "r");
+            if (sendFile == NULL) /* check it the file was opened */
+                return 0;
+
+            fseek(sendFile, 0L, SEEK_END);
+            stream << "HTTP/1.1 200 OK\nContent-length: " << ftell(sendFile) << "\n";
+            fseek(sendFile, 0L, SEEK_SET);
+            text = stream.str();
+            send(client, text.c_str(), text.length(), 0);
+            std::cout << "Sent : " <<  text << std::endl;
+            text = "Content-Type: text/html\n\n";
+            send(client, text.c_str(), text.length(), 0);
+            std::cout << "Sent : %s" << text << std::endl;
+            while (feof(sendFile) == 0)
+            {
+                int  numread;
+                char sendBuffer[500];
+
+                numread = fread(sendBuffer, sizeof(unsigned char), 1024, sendFile);
+                if (numread > 0)
+                {
+                    char *sendBuffer_ptr;
+                    sendBuffer_ptr = sendBuffer;
+                    do {
+                        fd_set  wfd;
+                        timeval tm;
+
+                        FD_ZERO(&wfd);
+                        FD_SET(client, &wfd);
+                        tm.tv_sec  = 10;
+                        tm.tv_usec = 0;
+                        /* first call select, and if the descriptor is writeable, call send */
+                        if (select(1 + client, NULL, &wfd, NULL, &tm) > 0)
+                        {
+                            int numsent;
+
+                            numsent = send(client, sendBuffer_ptr, numread, 0);
+                            if (numsent == -1)
+                                return 0;
+                            sendBuffer_ptr += numsent;
+                            numread        -= numsent;
+                        }
+                    } while (numread > 0);
+                }
+            }
+            /* don't forget to close the file. */
+            fclose(sendFile);
+        }
 
 
     } while (1);
