@@ -8,17 +8,62 @@
 #include <unistd.h>
 #include <netdb.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <stdio.h>
-#include <vector>
-#include <string.h>
-#include <stdio.h>
 #include <vector>
 #include <sstream> 
+#include <fcntl.h> 
+#include <sys/time.h>
+//Size of each chunk of data received, try changing this
+#define CHUNK_SIZE 1024
 using namespace std;
-
+int recv_timeout(int s , int timeout,string fileName)
+{
+    int size_recv , total_size= 0;
+    struct timeval begin , now;
+    char chunk[CHUNK_SIZE];
+    double timediff;
+     
+    //make socket non blocking
+    fcntl(s, F_SETFL, O_NONBLOCK);
+     
+    //beginning time
+    gettimeofday(&begin , NULL);
+     
+    while(1)
+    {
+        gettimeofday(&now , NULL);
+         
+        //time elapsed in seconds
+        timediff = (now.tv_sec - begin.tv_sec) + 1e-6 * (now.tv_usec - begin.tv_usec);
+         
+        //if you got some data, then break after timeout
+        if( total_size > 0 && timediff > timeout )
+        {
+            break;
+        }
+         
+        //if you got no data at all, wait a little longer, twice the timeout
+        else if( timediff > timeout*2)
+        {
+            break;
+        }
+         
+        memset(chunk ,0 , CHUNK_SIZE);  //clear the variable
+        if((size_recv =  recv(s , chunk , CHUNK_SIZE , 0) ) < 0)
+        {
+            //if nothing was received then we want to wait a little before trying again, 0.1 seconds
+            usleep(100000);
+        }
+        else
+        {
+            total_size += size_recv;
+            printf("%s" , chunk);
+            //reset beginning time
+            gettimeofday(&begin , NULL);
+        }
+    }
+     
+    return total_size;
+}
 int main(int argc, char *argv[])
 {
     
@@ -67,11 +112,9 @@ int main(int argc, char *argv[])
     cout << "\n\n=> Enter # to end the connection\n" << endl;
 
     // Once it reaches here, the client can send a message first.
-
-    do {
          bzero(buffer,bufsize);
         cout << "Client: ";
-            printf("Please enter the message: ");
+        printf("Please enter the command: ");
         fgets(buffer,bufsize-1,stdin);
         vector<string> vec; 
           char * pch;
@@ -89,22 +132,38 @@ int main(int argc, char *argv[])
             strcat (str,vec[1].c_str());
             strcat (str," HTTP/1.1\r\nHost: ");
             strcat (str,vec[2].c_str());
-            cout<<str<<endl;
-           int n = write(client, str, strlen(str));
+           int n = send(client, str, strlen(str),0);
             if (n < 0) 
                 printf("ERROR writing to socket");
-            n = read(client, buffer, bufsize-1);
+            n = recv(client, buffer, bufsize-1,0);
             if (n < 0) 
                  printf("ERROR reading from socket");
              else
                 {
                     //404
+                    cout<<buffer<<endl;
+                    if(strcmp ("404",buffer) ==0)
+                        printf("File not found");
                     //ok
-
+                    if(strcmp ("OK",buffer) ==0)
+                        {
+                            int total_recv = recv_timeout(client, 4,vec[1]);
+                            printf("\n\nDone. Received a total of %d bytes\n\n" , total_recv);
+                    }
                 }
            }
     else if(vec[0].compare("post")==0)
           {
+            char str[256];
+            strcpy (str,"POST /");
+            strcat (str," HTTP/1.1\r\nHost: ");
+            strcat (str,vec[2].c_str());
+           int n = send(client, str, strlen(str),0);
+            if (n < 0) 
+                printf("ERROR writing to socket");
+            n = recv(client, buffer, bufsize-1,0);
+            if (n < 0) 
+                 printf("ERROR reading from socket");
             string text;
             stringstream stream;
             FILE *sendFile = fopen(vec[1].c_str(), "r");
@@ -112,12 +171,12 @@ int main(int argc, char *argv[])
                 return 0;
 
             fseek(sendFile, 0L, SEEK_END);
-            stream << "HTTP/1.1 200 OK\nContent-length: " << ftell(sendFile) << "\n";
+            stream << "POST HTTP/1.1 200 OK\nContent-length: " << ftell(sendFile) << "\n";
             fseek(sendFile, 0L, SEEK_SET);
             text = stream.str();
             send(client, text.c_str(), text.length(), 0);
             std::cout << "Sent : " <<  text << std::endl;
-            text = "Content-Type: text/html\n\n";
+            text = "Content-Type: text/html/image\n\n";
             send(client, text.c_str(), text.length(), 0);
             std::cout << "Sent : %s" << text << std::endl;
             while (feof(sendFile) == 0)
@@ -155,9 +214,6 @@ int main(int argc, char *argv[])
             /* don't forget to close the file. */
             fclose(sendFile);
         }
-
-
-    } while (1);
 
     /* ---------------- CLOSE CALL ------------- */
     /* ----------------- close() --------------- */
