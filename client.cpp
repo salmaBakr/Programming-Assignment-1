@@ -56,12 +56,12 @@ int main(int argc, char *argv[])
     /* ---------- CONNECTING THE SOCKET ---------- */
     /* ---------------- connect() ---------------- */
 
-    if (connect(client,(struct sockaddr *)&server_addr, sizeof(server_addr)) == 0)
-        cout << "=> Connection to the server port number: " << portNum << endl;
-
-
-    cout << "=> Awaiting confirmation from the server..." << endl; //line 40
-    recv(client, buffer, bufsize, 0);
+    if (connect(client,(struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
+        {
+            cout << "=> Connection failed to the server port number: " << portNum << endl;
+            return 0;
+        }
+   
     cout << "=> Connection confirmed, you are good to go...";
 
     cout << "\n\n=> Enter # to end the connection\n" << endl;
@@ -97,7 +97,11 @@ int main(int argc, char *argv[])
             if (n < 0) 
                  printf("ERROR reading from socket");
              else
-                printf("%s\n", buffer);
+                {
+                    //404
+                    //ok
+
+                }
            }
     else if(vec[0].compare("post")==0)
           {
