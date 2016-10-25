@@ -27,6 +27,9 @@ int recv_timeout(int s , int timeout,string fileName)
      
     //beginning time
     gettimeofday(&begin , NULL);
+      FILE * pFile;
+   
+   pFile = fopen (fileName.c_str(),"w");
      
     while(1)
     {
@@ -56,12 +59,13 @@ int recv_timeout(int s , int timeout,string fileName)
         else
         {
             total_size += size_recv;
+            fprintf (pFile, "%s",chunk);
             printf("%s" , chunk);
             //reset beginning time
             gettimeofday(&begin , NULL);
         }
     }
-     
+     fclose (pFile);
     return total_size;
 }
 int main(int argc, char *argv[])
@@ -135,13 +139,12 @@ int main(int argc, char *argv[])
            int n = send(client, str, strlen(str),0);
             if (n < 0) 
                 printf("ERROR writing to socket");
+            bzero(buffer,bufsize);
             n = recv(client, buffer, bufsize-1,0);
             if (n < 0) 
                  printf("ERROR reading from socket");
              else
                 {
-                    //404
-                    cout<<buffer<<endl;
                     if(strcmp ("404",buffer) ==0)
                         printf("File not found");
                     //ok

@@ -56,11 +56,12 @@ int main(int argc,char *argv[]){
             cout << "error accepting"<<endl;
             continue;
         }
-        strcpy(buffer, "=> Server connected...\n");
-        send(fd_client, buffer, bufsize, 0);
+       // strcpy(buffer, "=> Server connected...\n");
+        //send(fd_client, buffer, bufsize, 0);
         cout << "success: client connected..." << endl;
         int pid=fork();
         if(!pid){
+            bzero(buffer,bufsize);
             cout << "in child process..."<<getpid() << endl;
             int read_size;
             if(read_size=recv(fd_client, buffer, bufsize-1, 0)>0){
@@ -82,7 +83,12 @@ int main(int argc,char *argv[]){
                         // send 200
                         //read file into buffer and send
                         //send blank line
-
+                    cout<<"da5l if"<<endl;
+                    bzero(buffer,bufsize);
+                    cout<<buffer<<endl;
+                    strcpy(buffer, "404");
+                    cout<<buffer<<endl;
+                    send(fd_client, buffer,bufsize-1, 0);
                 }else if(vec[0].compare("POST")==0){
                     //send 200
                     //receive all chunks of the file
